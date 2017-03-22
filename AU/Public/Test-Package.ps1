@@ -43,7 +43,10 @@ function Test-Package {
         [switch] $VagrantOpen,
 
         # Do not remove existing packages from vagrant package directory
-        [switch] $VagrantNoClear
+        [switch] $VagrantNoClear,
+
+        # Use the following name when calling vagrant up
+        [string]$VagrantName
     )
 
     if (!$Install -and !$Uninstall) { $Install = $true }
@@ -93,9 +96,9 @@ function Test-Package {
         $options_file = "$package_name.$package_version.xml"
         @{ Install = $Install; Uninstall = $Uninstall; Parameters = $Parameters } | Export-CliXML ([System.IO.Path]::Combine($Vagrant, 'packages', $options_file))
         if ($VagrantOpen) {
-            Start-Process powershell -Verb Open -ArgumentList "-NoProfile -NoExit -Command `$Env:http_proxy=`$Env:https_proxy=`$Env:ftp_proxy=`$Env:no_proxy=''; cd $Vagrant; vagrant up"
+            Start-Process powershell -Verb Open -ArgumentList "-NoProfile -NoExit -Command `$Env:http_proxy=`$Env:https_proxy=`$Env:ftp_proxy=`$Env:no_proxy=''; cd $Vagrant; vagrant up; vagrant up $VagrantNam"
         } else {
-            powershell -NoProfile -Command "`$Env:http_proxy=`$Env:https_proxy=`$Env:ftp_proxy=`$Env:no_proxy=''; cd $Vagrant; vagrant up"
+            powershell -NoProfile -Command "`$Env:http_proxy=`$Env:https_proxy=`$Env:ftp_proxy=`$Env:no_proxy=''; cd $Vagrant; vagrant up $VagrantName"
         }
         return
     }
