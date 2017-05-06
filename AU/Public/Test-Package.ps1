@@ -46,7 +46,10 @@ function Test-Package {
         [switch] $VagrantNoClear,
 
         # Use the following name when calling vagrant up
-        [string]$VagrantName
+        [string] $VagrantName = $Env:au_VagrantVM,
+
+        # Rollback the test environment before calling vagrant up
+        [switch] $VagrantRollback
     )
 
     if (!$Install -and !$Uninstall) { $Install = $true }
@@ -95,10 +98,26 @@ function Test-Package {
         Copy-Item $Nu (Join-Path $Vagrant 'packages')
         $options_file = "$package_name.$package_version.xml"
         @{ Install = $Install; Uninstall = $Uninstall; Parameters = $Parameters } | Export-CliXML ([System.IO.Path]::Combine($Vagrant, 'packages', $options_file))
+        $vagrantCommand = "vagrant up $VagrantName"
+        if ($VagrantRollback -and (!$Uninstall -or $Install)) {
+            if ($VagrantName -eq $null -or $VagrantNam -eq '') {
+                Write-Warning "No test environment name have been specified this could cause all test environments to be rolled back and started, do you wish to continue )only y, or n is accepted?"
+                $res = $null
+                while (!$res -or (!$res.StartsWith('y') -and !$res.StartsWith('n'))) {
+                    $res = Read-Host
+                }
+                if ($res.StartsWith('n')) { return }
+                
+            }
+            $vagrantCommand = "vagrant snapshot restore $VagrantName; $vagrantCommand"
+        }
+        elseif ($Uninstall -and !$Install) {
+            Write-Warning "Skipping vagrant rollback, this is useless when only uninstalling a package!!!"
+        }
         if ($VagrantOpen) {
             Start-Process powershell -Verb Open -ArgumentList "-NoProfile -NoExit -Command `$Env:http_proxy=`$Env:https_proxy=`$Env:ftp_proxy=`$Env:no_proxy=''; cd $Vagrant; vagrant up; vagrant up $VagrantNam"
         } else {
-            powershell -NoProfile -Command "`$Env:http_proxy=`$Env:https_proxy=`$Env:ftp_proxy=`$Env:no_proxy=''; cd $Vagrant; vagrant up $VagrantName"
+            powershell -NoProfile -Command "`$Env:http_proxy=`$Env:https_proxy=`$Env:ftp_proxy=`$Env:no_proxy=''; cd $Vagrant; $vagrantCommand"
         }
         return
     }
